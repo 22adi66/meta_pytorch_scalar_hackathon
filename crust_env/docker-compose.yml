@@ -1,0 +1,14 @@
+version: '3.8'
+
+services:
+  openenv-api:
+    build: .
+    container_name: crust_openenv
+    ports:
+      - "8000:8000"
+    volumes:
+      # Mount the local codebase for hot-reloading development
+      - .:/app/crust_env
+    environment:
+      - CRUST_WORKSPACE=/app/crust_env/dummy_workspace
+    command: uvicorn crust_env.api:app --host 0.0.0.0 --port 8000 --reload

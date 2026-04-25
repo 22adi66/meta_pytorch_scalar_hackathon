@@ -1,0 +1,41 @@
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+.venv/
+venv/
+env/
+dist/
+build/
+*.egg
+
+# Rust build artifacts
+target/
+Cargo.lock
+
+# Model outputs
+crust_model_outputs/
+*.safetensors
+*.bin
+*.pt
+*.pth
+
+# Docker
+DockerDesktopInstaller.exe
+
+# IDE
+.idea/
+.vscode/
+*.swp
+
+# OS
+.DS_Store
+Thumbs.db
+
+# PDFs (binary files not allowed on HF Spaces)
+*.pdf
+*.PDF
+
+# Environment
+.env
+*.env

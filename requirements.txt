@@ -1,0 +1,26 @@
+# ── PyTorch CUDA 12.1 (pinned — must come first so pip resolver never overrides it) ──
+--extra-index-url https://download.pytorch.org/whl/cu121
+torch==2.2.0+cu121
+torchvision==0.17.0+cu121
+
+# ── Core server ───────────────────────────────────────────────────────────────
+fastapi>=0.110.0
+uvicorn[standard]>=0.27.0
+pydantic>=2.0.0
+requests
+httpx
+
+# ── ML training stack ─────────────────────────────────────────────────────────
+# NO unsloth / NO bitsandbytes — they require CUDA 13 libs not present in CUDA 12.1
+# Qwen2.5-3B in bf16 = ~6 GB on A10G — no quantization needed
+transformers>=4.40.0,<4.60.0
+datasets>=2.16.0
+trl>=0.9.0,<0.20.0
+peft>=0.10.0
+accelerate>=0.30.0
+huggingface_hub>=0.21.0
+
+# ── Utilities ─────────────────────────────────────────────────────────────────
+numpy
+tqdm
+matplotlib

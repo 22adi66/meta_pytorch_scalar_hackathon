@@ -1,0 +1,60 @@
+spec_version: 1
+name: crust_env
+display_name: "CRust — C-to-Rust Migration RL Environment"
+type: space
+runtime: fastapi
+app: crust_env.api:app
+port: 8000
+
+description: >
+  An OpenEnv-compatible reinforcement learning environment that trains LLMs
+  to migrate legacy C codebases to memory-safe, idiomatic Rust.
+  Features topological dependency scheduling, multi-constraint instruction
+  following, and verifiable multi-objective rewards via cargo check + cargo test.
+
+theme: "Super Long-Horizon Planning & Instruction Following"
+hackathon: "Meta PyTorch OpenEnv Hackathon 2026"
+
+actions:
+  - name: reset
+    description: "Start a new migration episode. Returns the first C file to translate."
+    endpoint: POST /reset
+  - name: step
+    description: "Submit a Rust translation. Runs cargo check, cargo test, and metric evaluation."
+    endpoint: POST /step
+  - name: state
+    description: "Full internal state (session, schedule, history)."
+    endpoint: GET /state
+  - name: observation
+    description: "Agent-visible partial observation (C source, constraints, errors)."
+    endpoint: GET /observation
+
+reward:
+  min: 0.01
+  max: 0.99
+  components:
+    - name: compilation
+      weight: 0.30
+      description: "cargo check passes"
+    - name: tests
+      weight: 0.30
+      description: "cargo test passes (semantic equivalence)"
+    - name: memory_safety
+      weight: 0.20
+      description: "No unsafe blocks"
+    - name: cbo
+      weight: 0.10
+      description: "Coupling Between Objects < 3"
+    - name: cohesion
+      weight: 0.10
+      description: "LCOM cohesion score"
+
+curriculum:
+  phases: 4
+  phase_1: "Single leaf-node file (isolated functions)"
+  phase_2: "Two-file dependency chain"
+  phase_3: "Partial DAG with cross-file headers"
+  phase_4: "Full repository (long-horizon cascading error resolution)"
+
+space_url: "https://adithyakommuri-meta-hackathon-final.hf.space"
+model_url: "https://huggingface.co/Adithyakommuri/crust-grpo-qwen25-3b"
