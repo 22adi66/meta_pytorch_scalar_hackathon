@@ -4,7 +4,7 @@
 
 *Meta PyTorch OpenEnv Hackathon 2026 · Theme #2: Super Long-Horizon Planning & Instruction Following*
 
-**Adithya Kommuri** · [🌐 Live Environment](https://adithyakommuri-meta-hackathon-final.hf.space/docs) · [🤖 Trained Model](https://huggingface.co/Adithyakommuri/crust-grpo-qwen25-3b) · [💻 GitHub](https://github.com/22adi66/meta_pytorch_scalar_hackathon) · [📓 Colab Notebook](CRust_Training_Colab.ipynb)
+**Adithya Kommuri** · [🌐 Live Environment](https://adithyakommuri-meta-hackathon-final.hf.space/docs) · [🤖 Trained Model](https://huggingface.co/Adithyakommuri/crust-grpo-qwen25-3b) · [💻 GitHub](https://github.com/22adi66/meta_pytorch_scalar_hackathon) · [📓 Colab Notebook](https://colab.research.google.com/github/22adi66/meta_pytorch_scalar_hackathon/blob/master/CRust_Training_Colab.ipynb)
 
 ---
 
@@ -64,6 +64,17 @@ This is exactly the kind of domain where RL shines: the reward is **verifiable**
 ![CRust System Architecture](img_architecture.png)
 
 *Full system architecture: the agent receives a structured observation (C source + constraints + dependency context + recent errors), produces a Rust completion, and the CRust OpenEnv server runs the real Rust toolchain to compute a multi-component reward signal.*
+
+### The Full Pipeline: C → CRust → Safe Rust
+
+![LAC2R Decomposition & Refinement Architecture](img_lac2r_architecture.png)
+
+*The complete CRust pipeline. Given a C program, static analysis builds a dependency graph and decomposes the codebase into ordered functions f₁…fₙ. Each function is translated and refined iteratively inside the LAC2R scoring loop — using the continuous S(r) formula to score memory safety across 5 unsafe construct families. The output is an optimised, memory-safe Rust program.*
+
+This is the core innovation: rather than treating C-to-Rust migration as a one-shot translation, CRust treats it as an **iterative refinement MDP** where:
+- The **decomposition** step uses Kahn's topological sort on the `#include` DAG to establish the correct migration order
+- The **refinement** loop scores each submission with the LAC2R continuous S(r) formula — giving a dense reward for reducing unsafe constructs family-by-family
+- The agent can **revisit** a file after seeing compiler errors, progressively improving until constraints are satisfied
 
 CRust is deployed as an **OpenEnv-compatible FastAPI server** with three internal components:
 
@@ -146,19 +157,27 @@ The memory safety component is not a binary `has_unsafe` flag. We implement the 
 S(r_i) = m(r_i) × max(1 − T_i / T_0 , 0)
 ```
 
+![LAC2R 5-Family Safety Score](img_lac2r_safety.png)
+
+*Left: the 5 fine-grained unsafe construct families that make up T_i. Centre: the S(r) formula with T_0 (baseline) estimated from the C source itself. Right: the reward curve — the agent earns continuous partial credit for reducing each family independently. Removing RPR earns credit even if UCE constructs remain. No binary "has_unsafe" wall.*
+
 Where **T_i = RPC + RPR + LUC + UCE + UTC** — five fine-grained unsafe construct families:
 
-| Family | Counts |
-|---|---|
-| **RPC** — Raw Pointer Creations | `*const T`, `*mut T` type declarations |
-| **RPR** — Raw Pointer References | Deref ops, `ptr.offset()`, `std::ptr::read/write` |
-| **LUC** — Lines in Unsafe Constructs | Lines inside `unsafe { }` blocks |
-| **UCE** — Unsafe Calls / Extern C | `extern "C"` blocks, FFI function calls |
-| **UTC** — Unsafe Transmutes/Casts | `mem::transmute`, `mem::forget`, `as *const T` |
+| Family | Full Name | What it counts |
+|---|---|---|
+| **RPC** | Raw Pointer Creations | `*const T`, `*mut T` type declarations |
+| **RPR** | Raw Pointer References | Deref ops, `ptr.offset()`, `std::ptr::read/write` |
+| **LUC** | Lines in Unsafe Constructs | Lines of code inside `unsafe { }` blocks |
+| **UCE** | Unsafe Calls / Extern C | `extern "C"` blocks, FFI function calls |
+| **UTC** | Unsafe Transmutes/Casts | `mem::transmute`, `mem::forget`, `as *const T` |
 
-This gives the agent a **continuous, dense reward** for reducing each family independently — rather than hitting a hard wall that says "any unsafe = zero safety score." The agent earns partial credit for removing raw pointer dereferences even if it hasn't yet eliminated FFI calls.
+This gives the agent a **continuous, dense reward** for reducing each family independently. A naive binary `has_unsafe` reward would penalise the agent equally whether it has 1 or 100 unsafe constructs — destroying the gradient signal. The LAC2R formula fixes this:
 
-**T_0** (the baseline) is estimated from the C source itself: the more pointer operations and `malloc/memcpy` calls in the C code, the higher the baseline, and the more room the agent has to earn a continuous improvement signal.
+- The agent earns partial credit for removing raw pointer dereferences (RPR) **even if** FFI calls (UCE) still remain
+- The reward curve is **monotonically increasing** as T_i decreases — every unsafe construct removed is immediately rewarded
+- The **compile gate m(r_i) = 0** prevents the agent from gaming the safety score with non-compiling code that happens to have no unsafe keywords
+
+**T_0** (the baseline) is estimated from the C source itself: the more pointer operations, `malloc`, and `memcpy` calls in the original C code, the higher the baseline — and the more improvement headroom the agent has to earn a strong continuous signal.
 
 ---
 
@@ -385,7 +404,7 @@ tokenizer = AutoTokenizer.from_pretrained("Qwen/Qwen2.5-3B-Instruct")
 
 ### Reproduce the Training in Colab (Free T4 GPU)
 
-1. Open [CRust_Training_Colab.ipynb](CRust_Training_Colab.ipynb) → "Open in Colab"
+1. Open [CRust_Training_Colab.ipynb](https://colab.research.google.com/github/22adi66/meta_pytorch_scalar_hackathon/blob/master/CRust_Training_Colab.ipynb) → "Open in Colab"
 2. **Runtime → Change runtime type → GPU** (T4 is free and sufficient)
 3. **Run all cells** — training starts at Cell 7, ~60 min for 100 steps
 4. Watch reward trend upward in the step logs
@@ -428,7 +447,7 @@ A researcher could write a paper about training on this environment. We're excit
 | 🌐 **Live Environment (Swagger UI)** | [adithyakommuri-meta-hackathon-final.hf.space/docs](https://adithyakommuri-meta-hackathon-final.hf.space/docs) |
 | 🤖 **Trained LoRA Adapter** | [Adithyakommuri/crust-grpo-qwen25-3b](https://huggingface.co/Adithyakommuri/crust-grpo-qwen25-3b) |
 | 💻 **GitHub Repository** | [22adi66/meta_pytorch_scalar_hackathon](https://github.com/22adi66/meta_pytorch_scalar_hackathon) |
-| 📓 **Reproducible Colab Notebook** | [CRust_Training_Colab.ipynb](CRust_Training_Colab.ipynb) |
+| 📓 **Reproducible Colab Notebook** | [Open in Colab](https://colab.research.google.com/github/22adi66/meta_pytorch_scalar_hackathon/blob/master/CRust_Training_Colab.ipynb) |
 | 📊 **Training Logs** | [training_logs.txt](training_logs.txt) |
 | 📈 **Reward Curve** | [reward_curve.png](reward_curve.png) |
 
