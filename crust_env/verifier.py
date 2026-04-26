@@ -8,7 +8,7 @@ Security measures:
   - Path traversal protection on all file writes
   - Strict subprocess timeouts (cargo check: 30s, cargo test: 60s)
   - Test suite is READ-ONLY — agent cannot modify it (anti-reward-hacking)
-  - unsafe block counting for memory safety metric
+  - 5-family unsafe construct analysis (RPC, RPR, LUC, UCE, UTC) for rich safety signal
 """
 
 import subprocess
@@ -17,6 +17,8 @@ import os
 import re
 import shutil
 from typing import Dict, Any, List, Tuple
+
+from .unsafe_constructs import count_unsafe_constructs, UnsafeConstructCounts
 
 
 class VerifierFailedException(Exception):
@@ -80,9 +82,10 @@ class CRustVerifier:
 
         # ── Stage 1: Syntax / cargo check ─────────────────────────────────
         syntax_result = self.check_syntax()
-        unsafe_info = self.count_unsafe_blocks(code_content)
+        compiled = syntax_result.get("success", False)
+        unsafe_info = self.count_unsafe_constructs(code_content, compilable=compiled)
 
-        if not syntax_result.get("success"):
+        if not compiled:
             return {
                 "success": False,
                 "stage": "compilation",
@@ -227,23 +230,45 @@ class CRustVerifier:
                 "stderr": "cargo not found.",
             }
 
-    def count_unsafe_blocks(self, code: str) -> Dict[str, Any]:
+    def count_unsafe_constructs(self, code: str, *, compilable: bool = True) -> Dict[str, Any]:
         """
-        Static analysis: count unsafe keyword occurrences and compute memory safety ratio.
+        5-family unsafe construct analysis (LAC2R paper §2.3, Eq. 3).
 
-        Memory safety ratio = 1 - (unsafe_lines / total_lines)
-        A ratio of 1.0 means perfectly safe; 0.0 means entirely unsafe.
+        Replaces the old binary count_unsafe_blocks() with a rich, per-family
+        breakdown that gives the RL reward function a much more informative signal.
+
+        Families:
+          RPC — Raw Pointer Creations  (*const T, *mut T)
+          RPR — Raw Pointer References (deref ops, ptr arithmetic)
+          LUC — Lines in Unsafe Constructs (LOC inside unsafe { } blocks)
+          UCE — Unsafe Calls / Extern C (FFI, extern "C")
+          UTC — Unsafe Transmutes/Casts (mem::transmute, as *const/mut)
+
+        Returns dict compatible with the old interface (unsafe_count, unsafe_lines,
+        memory_safety_ratio) PLUS the full 5-family breakdown.
         """
+        counts: UnsafeConstructCounts = count_unsafe_constructs(code)
+        total = counts.total()
+
+        # Legacy-compatible fields (kept so nothing else breaks)
         lines = code.splitlines()
         total_lines = max(1, len(lines))
-        unsafe_lines = sum(1 for line in lines if re.search(r'\bunsafe\b', line))
-        unsafe_blocks = len(re.findall(r'\bunsafe\s*\{', code))
+        unsafe_lines = counts.luc   # LUC = lines inside unsafe blocks
         memory_safety_ratio = round(1.0 - unsafe_lines / total_lines, 4)
 
         return {
-            "unsafe_count": unsafe_blocks,
+            # Legacy fields
+            "unsafe_count": total,
             "unsafe_lines": unsafe_lines,
             "memory_safety_ratio": memory_safety_ratio,
+            # 5-family breakdown (new)
+            "unsafe_rpc": counts.rpc,
+            "unsafe_rpr": counts.rpr,
+            "unsafe_luc": counts.luc,
+            "unsafe_uce": counts.uce,
+            "unsafe_utc": counts.utc,
+            "total_unsafe_constructs": total,
+            "compilable": compilable,
         }
 
     # ── Private helpers ────────────────────────────────────────────────────
@@ -254,7 +279,16 @@ class CRustVerifier:
             "stage": stage,
             "reward": reward,
             "diagnostics": [{"message": message, "level": "error", "code": None, "spans": []}],
+            # Legacy fields
             "unsafe_count": 0,
             "unsafe_lines": 0,
             "memory_safety_ratio": 1.0,
+            # 5-family breakdown
+            "unsafe_rpc": 0,
+            "unsafe_rpr": 0,
+            "unsafe_luc": 0,
+            "unsafe_uce": 0,
+            "unsafe_utc": 0,
+            "total_unsafe_constructs": 0,
+            "compilable": False,
         }

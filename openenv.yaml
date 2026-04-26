@@ -35,19 +35,37 @@ reward:
   components:
     - name: compilation
       weight: 0.30
-      description: "cargo check passes"
+      description: "cargo check passes — structural correctness"
     - name: tests
       weight: 0.30
-      description: "cargo test passes (semantic equivalence)"
+      description: "cargo test passes — semantic equivalence to C original"
     - name: memory_safety
       weight: 0.20
-      description: "No unsafe blocks"
+      description: >
+        5-family LAC2R safety score S(r) = m * max(1 - T_i/T_0, 0)
+        where T_i = RPC+RPR+LUC+UCE+UTC (paper Eq. 3, Sim et al. arXiv:2505.15858).
+        Families: RPC (raw ptr creations), RPR (raw ptr references),
+        LUC (lines in unsafe blocks), UCE (extern C/FFI calls),
+        UTC (mem::transmute / as *const T casts).
+        Continuous [0,1] signal — agent rewarded for progressively
+        eliminating each unsafe family, not just binary presence.
     - name: cbo
       weight: 0.10
-      description: "Coupling Between Objects < 3"
+      description: "Coupling Between Objects < 3 — loosely coupled modules"
     - name: cohesion
       weight: 0.10
-      description: "LCOM cohesion score"
+      description: "LCOM cohesion score — all methods touch shared fields"
+  penalties:
+    - name: unsafe_penalty
+      value: -0.50
+      description: "Fires when 'Do not use the unsafe keyword' constraint is active AND any unsafe constructs detected"
+    - name: cbo_penalty
+      value: -0.20
+      description: "Fires when 'Maintain a CBO score below 3' constraint is active AND CBO >= 3"
+  process_supervision:
+    - name: error_cleared_bonus
+      value: +0.02
+      description: "Per compiler error cleared vs. previous step (shapes dense reward)"
 
 curriculum:
   phases: 4

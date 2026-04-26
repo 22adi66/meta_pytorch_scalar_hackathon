@@ -16,6 +16,7 @@ import re
 from .verifier import CRustVerifier
 from .scheduler import CDependencyGraph
 from .metrics import ModularityMetrics
+from .unsafe_constructs import compute_safety_score, estimate_baseline_T_from_c
 
 # ── OpenEnv base class (pip install openenv-core) ─────────────────────────────
 # We inherit from the official openenv.core Environment base class so that
@@ -183,12 +184,15 @@ class MigrationEnv(_OpenEnvBase):
         # ── Step 1: Sandboxed compilation + test verification ─────────────
         verification = self.verifier.verify(action)
 
-        # ── Step 2: Modularity metrics ────────────────────────────────────
-        metrics = ModularityMetrics.evaluate(code_content)
+        # ── Step 2: Modularity metrics + 5-family safety score ────────────
+        current_target = self._get_current_target()
+        c_source = self._read_c_source(current_target) if current_target else ""
+        compilable = verification.get("stage") in ("testing", "complete")
+        metrics = ModularityMetrics.evaluate(code_content, c_source=c_source, compilable=compilable)
         self._current_state["metrics"] = metrics
 
         # ── Step 3: Compute multi-objective reward ─────────────────────────
-        reward, breakdown = self._compute_reward(code_content, verification, metrics)
+        reward, breakdown = self._compute_reward(code_content, verification, metrics, c_source)
 
         # ── Step 4: Process supervision — reward clearing compiler errors ──
         current_errors = [
@@ -293,7 +297,7 @@ class MigrationEnv(_OpenEnvBase):
         return context
 
     def _compute_reward(
-        self, code: str, verification: Dict, metrics: Dict
+        self, code: str, verification: Dict, metrics: Dict, c_source: str = ""
     ) -> Tuple[float, Dict]:
         """
         Multi-objective reward computation.
@@ -301,9 +305,19 @@ class MigrationEnv(_OpenEnvBase):
         Components (all independently verifiable — no LLM judge):
         1. Compilation success (cargo check)
         2. Test pass rate (cargo test — semantic equivalence)
-        3. Memory safety (no unsafe blocks)
+        3. Memory safety — 5-family LAC2R S(r) score (RPC+RPR+LUC+UCE+UTC)
         4. Low coupling (CBO < 3)
         5. High cohesion (LCOM → 0)
+
+        The safety component now uses the LAC2R paper's Equation 3:
+          S(r_i) = m(r_i) * max(1 - T_i / T_0, 0)
+        where T_i = sum of all 5 unsafe construct families and T_0 is estimated
+        from the complexity of the C source being translated.
+
+        This is strictly superior to a binary has/doesn't-have-unsafe check:
+          - Agent gets credit for reducing unsafe constructs progressively
+          - Each unsafe family (RPC, RPR, LUC, UCE, UTC) contributes individually
+          - Compile-gate (m) prevents gaming via compilable-but-unsafe submissions
         """
         reward = 0.0
         breakdown: Dict[str, float] = {}
@@ -319,7 +333,7 @@ class MigrationEnv(_OpenEnvBase):
             breakdown["compilation"] = self.W_COMPILATION
         else:
             error_count = sum(1 for d in diag if d.get("level") == "error")
-            # Partial credit: compiled but had warnings only
+            # Partial credit: attempt compiles with warnings only (no errors)
             if error_count == 0 and diag:
                 partial = self.W_COMPILATION * 0.5
                 reward += partial
@@ -336,20 +350,34 @@ class MigrationEnv(_OpenEnvBase):
         else:
             breakdown["tests"] = 0.0
 
-        # ── 3. Memory safety ───────────────────────────────────────────────
-        unsafe_count = len(re.findall(r'\bunsafe\b', code))
-        unsafe_violated = any("unsafe" in c.lower() for c in self._constraints)
+        # ── 3. Memory safety — 5-family LAC2R S(r) (paper Eq. 3) ──────────
+        # Compute baseline T_0 from the C source complexity
+        baseline_T = estimate_baseline_T_from_c(c_source) if c_source else 1
+        snapshot = compute_safety_score(code, baseline_T, compilable=compiled)
+        S = snapshot.S   # [0, 1]
 
-        if unsafe_count > 0 and unsafe_violated:
+        unsafe_violated = any("unsafe" in c.lower() for c in self._constraints)
+        has_any_unsafe = snapshot.total_unsafe > 0
+
+        if has_any_unsafe and unsafe_violated:
+            # Hard penalty: constraint explicitly forbids unsafe AND agent used it
             reward -= self.P_UNSAFE_USED
             breakdown["unsafe_penalty"] = -self.P_UNSAFE_USED
             breakdown["memory_safety"] = 0.0
         else:
-            total_lines = max(1, len(code.splitlines()))
-            safety_score = max(0.0, 1.0 - (unsafe_count / total_lines) * 10)
-            mem_reward = round(self.W_MEMORY_SAFE * safety_score, 4)
+            # Continuous safety reward: S ∈ [0, 1] scales the weight
+            mem_reward = round(self.W_MEMORY_SAFE * S, 4)
             reward += mem_reward
             breakdown["memory_safety"] = mem_reward
+
+        # Expose per-family counts in breakdown for observability
+        breakdown["safety_S"] = round(S, 4)
+        breakdown["unsafe_rpc"] = snapshot.counts.rpc
+        breakdown["unsafe_rpr"] = snapshot.counts.rpr
+        breakdown["unsafe_luc"] = snapshot.counts.luc
+        breakdown["unsafe_uce"] = snapshot.counts.uce
+        breakdown["unsafe_utc"] = snapshot.counts.utc
+        breakdown["total_unsafe"] = snapshot.total_unsafe
 
         # ── 4. Coupling (CBO) ──────────────────────────────────────────────
         cbo = metrics.get("cbo", 0)

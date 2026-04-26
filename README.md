@@ -85,12 +85,34 @@ The constraints are **actively injected per episode** and vary — this is the i
 |---|---|---|
 | `cargo check` compiles | **0.30** | Structural correctness |
 | `cargo test` all pass | **0.30** | Semantic equivalence to C original |
-| Zero `unsafe` blocks | **0.20** | Memory safety constraint |
+| 5-family safety score S(r) | **0.20** | LAC2R continuous safety signal [0,1] |
 | CBO < 3 (coupling) | **0.10** | Architectural constraint |
 | LCOM cohesion | **0.10** | Module quality |
 | `unsafe` penalty | **−0.50** | Hard constraint violation |
 | CBO > 3 penalty | **−0.20** | Hard constraint violation |
 | Process reward | **+0.02/error** | Reward clearing each compiler error |
+
+#### 5-Family Safety Score — S(r) (LAC2R Paper, Eq. 3)
+
+Rather than a binary `has_unsafe` flag, the memory safety component uses the continuous LAC2R formula:
+
+```
+S(r_i) = m(r_i) x max(1 - T_i / T_0, 0)
+```
+
+where **T_i = RPC + RPR + LUC + UCE + UTC** across five unsafe-construct families:
+
+| Family | Full Name | What it counts |
+|---|---|---|
+| **RPC** | Raw Pointer Creations | `*const T`, `*mut T` type declarations |
+| **RPR** | Raw Pointer References | Deref ops, `ptr.offset()`, `std::ptr::read/write` |
+| **LUC** | Lines in Unsafe Constructs | Lines of code inside `unsafe { }` blocks |
+| **UCE** | Unsafe Calls / Extern C | `extern "C"` blocks, FFI function calls |
+| **UTC** | Unsafe Transmutes/Casts | `mem::transmute`, `mem::forget`, `as *const T` |
+
+- **T_0** (baseline) is estimated from C source complexity (pointer ops, casts, unsafe stdlib calls)
+- **m** = 1 if code compiles, 0 otherwise — compile-gate prevents gaming with non-compiling code
+- Agent earns credit for reducing each unsafe family individually, giving a continuous dense signal
 
 ### Curriculum (4 phases of increasing difficulty)
 

@@ -28,18 +28,21 @@ _stop_flag     = threading.Event()
 _training_thread: Optional[threading.Thread] = None
 
 _state: Dict[str, Any] = {
-    "status":          "idle",
-    "step":            0,
-    "max_steps":       0,
-    "current_reward":  0.0,
-    "best_reward":     0.0,
-    "reward_history":  [],
-    "log":             [],
-    "model_repo":      None,
-    "error":           None,
-    "start_time":      None,
-    "elapsed_seconds": 0,
-    "gpu_name":        None,
+    "status":           "idle",
+    "step":             0,
+    "max_steps":        0,
+    "current_reward":   0.0,
+    "best_reward":      0.0,
+    "reward_history":   [],
+    "log":              [],
+    "model_repo":       None,
+    "error":            None,
+    "start_time":       None,
+    "elapsed_seconds":  0,
+    "gpu_name":         None,
+    # 5-family safety metrics (updated each reward batch)
+    "avg_safety_S":     0.0,   # LAC2R S(r) score averaged over batch
+    "avg_unsafe_count": 0.0,   # avg total unsafe constructs (RPC+RPR+LUC+UCE+UTC)
 }
 
 
@@ -190,6 +193,11 @@ def _run_training(
         def reward_func(prompts=None, completions=None, **kwargs):
             rewards: List[float] = []
             reward_env = MigrationEnv(workspace_dir=workspace)
+
+            # Accumulate safety breakdown across the batch for logging
+            batch_safety: List[float] = []
+            batch_unsafe_totals: List[int] = []
+
             for completion in completions:
                 if _stop_flag.is_set():
                     rewards.append(0.0)
@@ -197,19 +205,33 @@ def _run_training(
                 try:
                     obs2    = reward_env.reset(phase=1)
                     target  = obs2.get("current_target", "math_ops.c")
-                    rs_path = "src/" + re.sub(r"\.c$", ".rs", os.path.basename(target))
+                    rs_path = "src/" + re.sub(r"\.[ch]$", ".rs", os.path.basename(target))
                     result  = reward_env.step({"file_path": rs_path, "code_content": completion})
                     rewards.append(result["reward"])
+
+                    # Log 5-family safety breakdown for observability
+                    breakdown = result.get("info", {}).get("reward_breakdown", {})
+                    batch_safety.append(breakdown.get("safety_S", 0.0))
+                    batch_unsafe_totals.append(breakdown.get("total_unsafe", 0))
                 except Exception:
                     rewards.append(0.01)
+                    batch_safety.append(0.0)
+                    batch_unsafe_totals.append(0)
 
             avg = sum(rewards) / max(len(rewards), 1)
+            avg_S = sum(batch_safety) / max(len(batch_safety), 1)
+            avg_unsafe = sum(batch_unsafe_totals) / max(len(batch_unsafe_totals), 1)
+
             with _lock:
                 _state["current_reward"] = round(avg, 4)
                 _state["reward_history"].append(round(avg, 4))
                 if avg > _state["best_reward"]:
                     _state["best_reward"] = round(avg, 4)
                 _state["elapsed_seconds"] = round(time.time() - _state["start_time"], 1)
+                # Store 5-family safety metrics for /train/status
+                _state["avg_safety_S"]      = round(avg_S, 4)
+                _state["avg_unsafe_count"]  = round(avg_unsafe, 2)
+
             return rewards
 
         # ── 4. Progress callback ───────────────────────────────────────────
