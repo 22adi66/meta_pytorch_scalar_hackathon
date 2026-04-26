@@ -24,6 +24,8 @@ tags:
 | 🌐 **Live Environment** | https://adithyakommuri-meta-hackathon-final.hf.space/docs |
 | 🤖 **Trained Model** | https://huggingface.co/Adithyakommuri/crust-grpo-qwen25-3b |
 | 📝 **Blog Post** | [Blog.md](Blog.md) |
+| 📃 **Training Logs** | [training_logs.txt](training_logs.txt) |
+| 📊 **Reward Curve** | [reward_curve.png](reward_curve.png) |
 | 💻 **GitHub** | https://github.com/22adi66/meta_pytorch_scalar_hackathon |
 
 [![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/22adi66/meta_pytorch_scalar_hackathon/blob/master/CRust_Training_Colab.ipynb)
@@ -130,7 +132,7 @@ The **scheduler** builds a topological dependency graph from `#include` directiv
 ## 3. Training Results — Before vs After GRPO
 
 ![Reward Curve](reward_curve.png)
-*Left: Reward over GRPO training steps. Right: Per-component reward breakdown. The agent improves from ~0.05 to **0.70** in ~25 steps.*
+*Left: Total reward vs zero-shot baseline. Centre: Per-component breakdown before/after GRPO. Right: 5-family LAC2R safety score S(r) over training. Agent improves from ~0.05 to **0.70** in ~25 steps; safety score S(r) rises from 0 to 1.0.*
 
 ### ❌ Before Training (Zero-Shot Qwen2.5-3B)
 

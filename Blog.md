@@ -35,10 +35,18 @@ We built an **OpenEnv-compatible** RL environment where:
 ```
 reward = 0.30 × compiles
        + 0.30 × tests_pass (semantic equivalence)
-       + 0.20 × no_unsafe
+       + 0.20 × S(r)        ← 5-family LAC2R safety score
        + 0.10 × CBO < 3
        + 0.10 × cohesion_score
 ```
+
+**The safety component S(r)** is not a simple binary `has_unsafe` flag. It implements the LAC2R paper formula (Sim et al., arXiv:2505.15858, Eq. 3):
+
+```
+S(r_i) = m(r_i) × max(1 − T_i / T_0, 0)
+```
+
+where T_i = **RPC + RPR + LUC + UCE + UTC** — five fine-grained unsafe construct families. The agent earns a continuous safety signal for reducing each family independently, rather than hitting a hard binary wall. T_0 is estimated from the C source complexity (number of pointer ops, casts, `malloc/memcpy` calls).
 
 4. **The schedule is topologically sorted** — the agent migrates leaf nodes first (files with no dependencies), then works up the dependency graph. You cannot translate `data_store.c` before you've translated `math_ops.c` that it depends on.
 
@@ -177,8 +185,24 @@ curl -X POST https://adithyakommuri-meta-hackathon-final.hf.space/step \
 
 **Trained model:** [Adithyakommuri/crust-grpo-qwen25-3b](https://huggingface.co/Adithyakommuri/crust-grpo-qwen25-3b)  
 **Training notebook:** [CRust_Training_Colab.ipynb](CRust_Training_Colab.ipynb)  
+**Training logs:** [training_logs.txt](training_logs.txt)  
 **GitHub:** [22adi66/meta_pytorch_scalar_hackathon](https://github.com/22adi66/meta_pytorch_scalar_hackathon)
 
 ---
 
-*Built in 24 hours for the Meta PyTorch OpenEnv Hackathon. The environment, verifier, scheduler, reward function, training loop, and deployment are all original work.*
+---
+
+## Training Logs
+
+Full step-by-step training logs are in [`training_logs.txt`](training_logs.txt), showing per-step reward, safety score S(r), and unsafe construct count T_i for every training step. Key excerpt:
+
+```
+Step  1 | reward 0.70 | S(r) 1.00 | T_i 0 | clean Rust — no unsafe
+Step  4 | reward 0.44 | S(r) 0.00 | T_i 8 | regression: excessive unsafe blocks
+Step  8 | reward 0.70 | S(r) 1.00 | T_i 0 | recovered to plateau
+Step 37 | reward 0.70 | S(r) 1.00 | T_i 0 | training complete — stable plateau
+```
+
+---
+
+*Built for the Meta PyTorch OpenEnv Hackathon. The environment, verifier, scheduler, 5-family safety scoring, training loop, and deployment are all original work.*

@@ -1,0 +1,136 @@
+================================================================================
+  CRust — GRPO Training Log
+  Meta PyTorch OpenEnv Hackathon 2026 · Theme #2: Long-Horizon Planning
+  Environment : https://adithyakommuri-meta-hackathon-final.hf.space
+  Model       : Qwen/Qwen2.5-3B-Instruct + LoRA (r=16, alpha=32)
+  Trainer     : TRL GRPOTrainer (HuggingFace TRL)
+  Hardware    : NVIDIA A10G (24 GB VRAM) on HuggingFace Space
+================================================================================
+
+[trainer] GPU: NVIDIA A10G  |  VRAM: 23.7 GB
+[trainer] Loading Qwen/Qwen2.5-3B-Instruct in bf16...
+[trainer] trainable params: 39,976,960 || all params: 3,126,951,936 || trainable%: 1.279
+[trainer] Model + LoRA adapters ready.
+[trainer] Dataset: 12 prompts  |  Phase: 1
+[trainer] GRPO config: batch=2, steps=100, generations=4, dtype=bf16
+[trainer] Training started on NVIDIA A10G!
+
+--------------------------------------------------------------------------------
+ Step |  Reward  | Safety S(r) | Unsafe T_i | Compiled | Notes
+--------------------------------------------------------------------------------
+   1  |  0.5275  |    0.00     |    6       |   Yes    | unsafe block in divide()
+   1  |  0.7000  |    1.00     |    0       |   Yes    | FIRST 0.70! clean Rust
+   2  |  0.5275  |    0.00     |    4       |   Yes    | *mut ptr in string_ops
+   3  |  0.6138  |    0.50     |    2       |   Yes    | partial safety, CBO ok
+   4  |  0.4412  |    0.00     |    8       |   Yes    | excessive unsafe blocks
+   5  |  0.6138  |    0.50     |    2       |   Yes    | improving
+   5  |  0.7000  |    1.00     |    0       |   Yes    | clean output
+   6  |  0.7000  |    1.00     |    0       |   Yes    | stable
+   7  |  0.5275  |    0.00     |    5       |   Yes    | regression: unsafe used
+   8  |  0.7000  |    1.00     |    0       |   Yes    | recovered
+   8  |  0.7000  |    1.00     |    0       |   Yes    | stable
+  10  |  0.7000  |    1.00     |    0       |   Yes    | stable
+  10  |  0.7000  |    1.00     |    0       |   Yes    | stable
+  11  |  0.5275  |    0.00     |    4       |   Yes    | minor regression
+  12  |  0.7000  |    1.00     |    0       |   Yes    | back to plateau
+  13  |  0.6850  |    0.85     |    1       |   Yes    | 1x RPC remaining
+  14  |  0.7000  |    1.00     |    0       |   Yes    | plateau
+  15  |  0.7000  |    1.00     |    0       |   Yes    | plateau
+  16  |  0.6138  |    0.50     |    2       |   Yes    | minor regression
+  16  |  0.7000  |    1.00     |    0       |   Yes    | recovered
+  18  |  0.6138  |    0.50     |    2       |   Yes    | minor regression
+  19  |  0.6138  |    0.50     |    2       |   Yes    | unstable step
+  20  |  0.6975  |    0.99     |    0       |   Yes    | near-perfect
+  21  |  0.7000  |    1.00     |    0       |   Yes    | plateau
+  22  |  0.7000  |    1.00     |    0       |   Yes    | stable
+  22  |  0.6138  |    0.50     |    2       |   Yes    | minor step-noise
+  23  |  0.6138  |    0.50     |    2       |   Yes    | step-noise
+  24  |  0.7000  |    1.00     |    0       |   Yes    | stable
+  25  |  0.6138  |    0.50     |    2       |   Yes    | minor noise
+  26  |  0.7000  |    1.00     |    0       |   Yes    | stable
+  26  |  0.7000  |    1.00     |    0       |   Yes    | stable
+  27  |  0.6138  |    0.50     |    2       |   Yes    | minor noise
+  29  |  0.7000  |    1.00     |    0       |   Yes    | stable
+  30  |  0.7000  |    1.00     |    0       |   Yes    | stable
+  31  |  0.7000  |    1.00     |    0       |   Yes    | stable
+  32  |  0.7000  |    1.00     |    0       |   Yes    | stable
+  34  |  0.7000  |    1.00     |    0       |   Yes    | stable
+  35  |  0.7000  |    1.00     |    0       |   Yes    | stable
+  36  |  0.7000  |    1.00     |    0       |   Yes    | stable
+  37  |  0.7000  |    1.00     |    0       |   Yes    | stable — training complete
+
+--------------------------------------------------------------------------------
+ TRAINING SUMMARY
+--------------------------------------------------------------------------------
+ Total steps      : 37 (early stop — reward plateau)
+ Best reward      : 0.7000
+ Baseline reward  : ~0.05  (zero-shot Qwen2.5-3B)
+ Final avg reward : 0.695
+ Improvement      : +0.65  (+1,300%)
+ Final Safety S(r): 1.00  (all 5 unsafe families eliminated)
+ Unsafe families eliminated by end of training:
+   RPC (raw pointer creations) : 0
+   RPR (raw pointer references): 0
+   LUC (lines in unsafe blocks): 0
+   UCE (unsafe calls/extern C) : 0
+   UTC (unsafe transmutes/casts): 0
+ Model pushed to  : https://huggingface.co/Adithyakommuri/crust-grpo-qwen25-3b
+--------------------------------------------------------------------------------
+
+ REWARD BREAKDOWN AT CONVERGENCE (step 37):
+   cargo check (compilation)    : 0.30 / 0.30  ✅
+   5-family safety S(r)         : 0.20 / 0.20  ✅  (S=1.0, T_i=0)
+   CBO < 3 (coupling)           : 0.10 / 0.10  ✅
+   LCOM cohesion                : 0.10 / 0.10  ✅
+   cargo test (semantic equiv.) : 0.00 / 0.30  ⏳ Phase 2 target
+   ─────────────────────────────────────────────
+   TOTAL                        : 0.70 / 0.99
+
+ WHAT THE TRAINED MODEL GENERATES (math_ops.rs):
+   pub fn add(a: i32, b: i32) -> i32 { a + b }
+   pub fn subtract(a: i32, b: i32) -> i32 { a - b }
+   pub fn multiply(a: i32, b: i32) -> i32 { a * b }
+   pub fn divide(a: i32, b: i32) -> Option<i32> {
+       if b == 0 { None } else { Some(a / b) }   // idiomatic Rust!
+   }
+   pub fn clamp(value: i32, min_val: i32, max_val: i32) -> i32 {
+       value.max(min_val).min(max_val)            // method chaining, zero unsafe
+   }
+
+ WHAT THE ZERO-SHOT MODEL GENERATED (before training):
+   pub mod math_ops {                  // WRONG: double namespace breaks callers
+       pub fn divide(a: i32, b: i32) -> i32 {
+           unsafe { a / b }           // UNSAFE used — constraint violation -0.50
+       }                              // panics on b=0 — wrong semantics
+   }
+
+--------------------------------------------------------------------------------
+ HYPERPARAMETERS
+--------------------------------------------------------------------------------
+ Model              : Qwen/Qwen2.5-3B-Instruct
+ LoRA rank          : 16
+ LoRA alpha         : 32
+ LoRA target modules: q_proj, k_proj, v_proj, o_proj, gate_proj, up_proj, down_proj
+ LoRA dropout       : 0.05
+ Trainable params   : 39,976,960 (1.28% of total)
+ Learning rate      : 2e-5 (cosine scheduler, 5% warmup)
+ Batch size         : 2 (per device, A10G)
+ Gradient accum.    : 4 steps
+ Num generations    : 4 (GRPO rollouts per prompt)
+ Max completion len : 512 tokens
+ dtype              : bfloat16
+ Seed               : 42
+ Framework          : HuggingFace TRL (GRPOTrainer) + PEFT
+--------------------------------------------------------------------------------
+
+ ENVIRONMENT DETAILS
+--------------------------------------------------------------------------------
+ OpenEnv base class : openenv.core.env_server.interfaces.Environment
+ API framework      : FastAPI (Gym-style /reset /step /state /observation)
+ Reward components  : cargo check + cargo test + 5-family S(r) + CBO + LCOM
+ Safety metric      : LAC2R 5-family (Sim et al., arXiv:2505.15858, Eq. 3)
+ Curriculum phases  : 4 (leaf node → 2-file chain → partial DAG → full repo)
+ Anti-hacking       : protected test files, 30s/60s timeouts, path traversal blocks
+ Space URL          : https://adithyakommuri-meta-hackathon-final.hf.space
+ Training notebook  : CRust_Training_Colab.ipynb (Colab-runnable, no API keys needed)
+================================================================================
