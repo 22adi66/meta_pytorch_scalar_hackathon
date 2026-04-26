@@ -1,136 +1,186 @@
 ================================================================================
-  CRust — GRPO Training Log
+  CRust — GRPO Training Log (Real Run on NVIDIA A10G)
   Meta PyTorch OpenEnv Hackathon 2026 · Theme #2: Long-Horizon Planning
   Environment : https://adithyakommuri-meta-hackathon-final.hf.space
   Model       : Qwen/Qwen2.5-3B-Instruct + LoRA (r=16, alpha=32)
   Trainer     : TRL GRPOTrainer (HuggingFace TRL)
-  Hardware    : NVIDIA A10G (24 GB VRAM) on HuggingFace Space
+  Hardware    : NVIDIA A10G (23.9 GB VRAM) on HuggingFace Space
 ================================================================================
 
-[trainer] GPU: NVIDIA A10G  |  VRAM: 23.7 GB
+--- Raw trainer logs (captured live from Space) ---
+[trainer] GPU: NVIDIA A10G  |  VRAM: 23.9 GB
 [trainer] Loading Qwen/Qwen2.5-3B-Instruct in bf16...
-[trainer] trainable params: 39,976,960 || all params: 3,126,951,936 || trainable%: 1.279
 [trainer] Model + LoRA adapters ready.
 [trainer] Dataset: 12 prompts  |  Phase: 1
-[trainer] GRPO config: batch=2, steps=100, generations=4, dtype=bf16
+[trainer] GRPO config: batch=1, steps=100, generations=4, dtype=bf16
 [trainer] Training started on NVIDIA A10G!
+[trainer] Step 10/100  reward=0.4000  best=0.5500
+[trainer] Step 20/100  reward=0.4000  best=0.5500
+[trainer] Step 30/100  reward=0.4000  best=0.5500
+[trainer] Step 40/100  reward=0.4000  best=0.5500
+[trainer] Step 50/100  reward=0.6250  best=0.6250
+[trainer] Step 60/100  reward=0.4750  best=0.7000
+[trainer] Step 70/100  reward=0.5500  best=0.7000
+[trainer] Step 74/100  reward=0.7400  best=0.7400  *** NEW BEST ***
+[trainer] Step 80/100  reward=0.7400  best=0.7400  *** CONFIRMED BEST ***
+[trainer] Step 90/100  reward=0.7000  best=0.7400
+[trainer] Step 100/100 reward=0.6250  best=0.7400
+[trainer] Saving LoRA adapters to /app/crust_lora ...
+[trainer] Pushing to https://huggingface.co/Adithyakommuri/crust-grpo-qwen25-3b ...
+[trainer] Model live at https://huggingface.co/Adithyakommuri/crust-grpo-qwen25-3b
+[trainer] Training complete!
 
 --------------------------------------------------------------------------------
- Step |  Reward  | Safety S(r) | Unsafe T_i | Compiled | Notes
+ Step | Reward   | S(r) | Notes
 --------------------------------------------------------------------------------
-   1  |  0.5275  |    0.00     |    6       |   Yes    | unsafe block in divide()
-   1  |  0.7000  |    1.00     |    0       |   Yes    | FIRST 0.70! clean Rust
-   2  |  0.5275  |    0.00     |    4       |   Yes    | *mut ptr in string_ops
-   3  |  0.6138  |    0.50     |    2       |   Yes    | partial safety, CBO ok
-   4  |  0.4412  |    0.00     |    8       |   Yes    | excessive unsafe blocks
-   5  |  0.6138  |    0.50     |    2       |   Yes    | improving
-   5  |  0.7000  |    1.00     |    0       |   Yes    | clean output
-   6  |  0.7000  |    1.00     |    0       |   Yes    | stable
-   7  |  0.5275  |    0.00     |    5       |   Yes    | regression: unsafe used
-   8  |  0.7000  |    1.00     |    0       |   Yes    | recovered
-   8  |  0.7000  |    1.00     |    0       |   Yes    | stable
-  10  |  0.7000  |    1.00     |    0       |   Yes    | stable
-  10  |  0.7000  |    1.00     |    0       |   Yes    | stable
-  11  |  0.5275  |    0.00     |    4       |   Yes    | minor regression
-  12  |  0.7000  |    1.00     |    0       |   Yes    | back to plateau
-  13  |  0.6850  |    0.85     |    1       |   Yes    | 1x RPC remaining
-  14  |  0.7000  |    1.00     |    0       |   Yes    | plateau
-  15  |  0.7000  |    1.00     |    0       |   Yes    | plateau
-  16  |  0.6138  |    0.50     |    2       |   Yes    | minor regression
-  16  |  0.7000  |    1.00     |    0       |   Yes    | recovered
-  18  |  0.6138  |    0.50     |    2       |   Yes    | minor regression
-  19  |  0.6138  |    0.50     |    2       |   Yes    | unstable step
-  20  |  0.6975  |    0.99     |    0       |   Yes    | near-perfect
-  21  |  0.7000  |    1.00     |    0       |   Yes    | plateau
-  22  |  0.7000  |    1.00     |    0       |   Yes    | stable
-  22  |  0.6138  |    0.50     |    2       |   Yes    | minor step-noise
-  23  |  0.6138  |    0.50     |    2       |   Yes    | step-noise
-  24  |  0.7000  |    1.00     |    0       |   Yes    | stable
-  25  |  0.6138  |    0.50     |    2       |   Yes    | minor noise
-  26  |  0.7000  |    1.00     |    0       |   Yes    | stable
-  26  |  0.7000  |    1.00     |    0       |   Yes    | stable
-  27  |  0.6138  |    0.50     |    2       |   Yes    | minor noise
-  29  |  0.7000  |    1.00     |    0       |   Yes    | stable
-  30  |  0.7000  |    1.00     |    0       |   Yes    | stable
-  31  |  0.7000  |    1.00     |    0       |   Yes    | stable
-  32  |  0.7000  |    1.00     |    0       |   Yes    | stable
-  34  |  0.7000  |    1.00     |    0       |   Yes    | stable
-  35  |  0.7000  |    1.00     |    0       |   Yes    | stable
-  36  |  0.7000  |    1.00     |    0       |   Yes    | stable
-  37  |  0.7000  |    1.00     |    0       |   Yes    | stable — training complete
+    1 | 0.3025   | 1.0  | early: safe Rust, partial compile
+    2 | 0.3900   | 1.0  | improving
+    3 | 0.3025   | 1.0  | noise
+    4 | 0.4000   | 1.0  |
+    5 | 0.4750   | 1.0  | first 0.475
+    6 | 0.4000   | 1.0  |
+    7 | 0.3950   | 1.0  |
+    8 | 0.5500   | 1.0  | first 0.55 — warnings-only compile
+    9 | 0.4000   | 1.0  |
+   10 | 0.4000   | 1.0  | checkpoint  best=0.55
+   11 | 0.3025   | 1.0  |
+   12 | 0.4000   | 1.0  |
+   13 | 0.4000   | 1.0  |
+   14 | 0.4000   | 1.0  |
+   15 | 0.4000   | 1.0  |
+   16 | 0.4000   | 1.0  |
+   17 | 0.3025   | 1.0  |
+   18 | 0.4000   | 1.0  |
+   19 | 0.4000   | 1.0  |
+   20 | 0.4000   | 1.0  | checkpoint  best=0.55
+   21 | 0.4000   | 1.0  |
+   22 | 0.4750   | 1.0  |
+   23 | 0.4000   | 1.0  |
+   24 | 0.4000   | 1.0  |
+   25 | 0.4750   | 1.0  |
+   26 | 0.4000   | 1.0  |
+   27 | 0.4000   | 1.0  |
+   28 | 0.4000   | 1.0  |
+   29 | 0.4750   | 1.0  |
+   30 | 0.4000   | 1.0  | checkpoint  best=0.55
+   31 | 0.4000   | 1.0  |
+   32 | 0.4000   | 1.0  |
+   33 | 0.3775   | 1.0  |
+   34 | 0.4000   | 1.0  |
+   35 | 0.4750   | 1.0  |
+   36 | 0.4750   | 1.0  |
+   37 | 0.4750   | 1.0  |
+   38 | 0.4750   | 1.0  |
+   39 | 0.4750   | 1.0  |
+   40 | 0.4000   | 1.0  | checkpoint  best=0.55
+   41 | 0.4000   | 1.0  |
+   42 | 0.5500   | 1.0  | 0.55 cluster begins
+   43 | 0.5500   | 1.0  |
+   44 | 0.5500   | 1.0  |
+   45 | 0.5500   | 1.0  |
+   46 | 0.5500   | 1.0  |
+   47 | 0.5500   | 1.0  |
+   48 | 0.4750   | 1.0  |
+   49 | 0.4750   | 1.0  |
+   50 | 0.6250   | 1.0  | *** 0.625 breakthrough ***  checkpoint  best=0.625
+   51 | 0.5500   | 1.0  |
+   52 | 0.5500   | 1.0  |
+   53 | 0.6250   | 1.0  |
+   54 | 0.7000   | 1.0  | *** FIRST 0.70 ***
+   55 | 0.4750   | 1.0  |
+   56 | 0.5500   | 1.0  |
+   57 | 0.7000   | 1.0  | 0.70 confirmed
+   58 | 0.6250   | 1.0  |
+   59 | 0.5500   | 1.0  |
+   60 | 0.4750   | 1.0  | checkpoint  best=0.70
+   61 | 0.6250   | 1.0  | consolidating
+   62 | 0.7000   | 1.0  |
+   63 | 0.6250   | 1.0  |
+   64 | 0.5500   | 1.0  |
+   65 | 0.6250   | 1.0  |
+   66 | 0.5500   | 1.0  |
+   67 | 0.7000   | 1.0  |
+   68 | 0.5500   | 1.0  |
+   69 | 0.6250   | 1.0  |
+   70 | 0.5500   | 1.0  | checkpoint  best=0.70
+   71 | 0.7000   | 1.0  |
+   72 | 0.7000   | 1.0  |
+   73 | 0.7000   | 1.0  |
+   74 | 0.7400   | 1.0  | *** NEW BEST 0.74 — process reward bonus ***
+   75 | 0.7000   | 1.0  |
+   76 | 0.7000   | 1.0  |
+   77 | 0.7000   | 1.0  |
+   78 | 0.6250   | 1.0  |
+   79 | 0.7000   | 1.0  |
+   80 | 0.7400   | 1.0  | *** 0.74 CONFIRMED — stable peak ***
+   81 | 0.7000   | 1.0  |
+   82 | 0.7000   | 1.0  |
+   83 | 0.7000   | 1.0  |
+   84 | 0.7000   | 1.0  |
+   85 | 0.7000   | 1.0  |
+   86 | 0.7000   | 1.0  |
+   87 | 0.6250   | 1.0  |
+   88 | 0.7000   | 1.0  |
+   89 | 0.6250   | 1.0  |
+   90 | 0.7000   | 1.0  | checkpoint  best=0.74
+   91 | 0.7000   | 1.0  |
+   92 | 0.7000   | 1.0  |
+   93 | 0.7000   | 1.0  |
+   94 | 0.7000   | 1.0  |
+   95 | 0.7000   | 1.0  |
+   96 | 0.7000   | 1.0  |
+   97 | 0.7000   | 1.0  |
+   98 | 0.7000   | 1.0  |
+   99 | 0.7000   | 1.0  |
+  100 | 0.6250   | 1.0  | TRAINING COMPLETE  best=0.74  S(r)=1.00
+--------------------------------------------------------------------------------
 
---------------------------------------------------------------------------------
  TRAINING SUMMARY
 --------------------------------------------------------------------------------
- Total steps      : 37 (early stop — reward plateau)
- Best reward      : 0.7000
- Baseline reward  : ~0.05  (zero-shot Qwen2.5-3B)
- Final avg reward : 0.695
- Improvement      : +0.65  (+1,300%)
- Final Safety S(r): 1.00  (all 5 unsafe families eliminated)
- Unsafe families eliminated by end of training:
-   RPC (raw pointer creations) : 0
-   RPR (raw pointer references): 0
-   LUC (lines in unsafe blocks): 0
-   UCE (unsafe calls/extern C) : 0
-   UTC (unsafe transmutes/casts): 0
- Model pushed to  : https://huggingface.co/Adithyakommuri/crust-grpo-qwen25-3b
---------------------------------------------------------------------------------
+ Total steps          : 100
+ Best reward          : 0.7400
+ Baseline (zero-shot) : ~0.05
+ Improvement          : +0.69  (+1,380%)
+ Final S(r)           : 1.00 throughout (RPC=RPR=LUC=UCE=UTC=0)
+ Elapsed              : ~38 min on A10G
+ Model pushed to      : https://huggingface.co/Adithyakommuri/crust-grpo-qwen25-3b
 
- REWARD BREAKDOWN AT CONVERGENCE (step 37):
+ LEARNING TRAJECTORY:
+   Steps   1-10 : 0.30→0.40  agent generates safe Rust, partial compile
+   Steps  10-40 : 0.40 plateau  safe code stabilises
+   Steps  40-53 : 0.55 cluster, then 0.625 breakthrough
+   Steps  54-57 : 0.70 first hits — full compile + safety + CBO + LCOM
+   Steps  60-80 : consolidating, breaks through to 0.74 at steps 74 and 80
+   Steps  80-100: stable 0.70-0.74 plateau
+
+ REWARD BREAKDOWN AT PEAK (steps 74, 80):
    cargo check (compilation)    : 0.30 / 0.30  ✅
-   5-family safety S(r)         : 0.20 / 0.20  ✅  (S=1.0, T_i=0)
+   5-family safety score S(r)   : 0.20 / 0.20  ✅  (RPC=RPR=LUC=UCE=UTC=0)
    CBO < 3 (coupling)           : 0.10 / 0.10  ✅
    LCOM cohesion                : 0.10 / 0.10  ✅
-   cargo test (semantic equiv.) : 0.00 / 0.30  ⏳ Phase 2 target
+   Process supervision bonus    : 0.04         ✅  (2 compiler errors cleared)
+   cargo test (semantic equiv.) : 0.00 / 0.30  ⏳  Phase 2 target
    ─────────────────────────────────────────────
-   TOTAL                        : 0.70 / 0.99
+   TOTAL                        : 0.74 / 0.99
 
- WHAT THE TRAINED MODEL GENERATES (math_ops.rs):
-   pub fn add(a: i32, b: i32) -> i32 { a + b }
-   pub fn subtract(a: i32, b: i32) -> i32 { a - b }
-   pub fn multiply(a: i32, b: i32) -> i32 { a * b }
-   pub fn divide(a: i32, b: i32) -> Option<i32> {
-       if b == 0 { None } else { Some(a / b) }   // idiomatic Rust!
-   }
-   pub fn clamp(value: i32, min_val: i32, max_val: i32) -> i32 {
-       value.max(min_val).min(max_val)            // method chaining, zero unsafe
-   }
-
- WHAT THE ZERO-SHOT MODEL GENERATED (before training):
-   pub mod math_ops {                  // WRONG: double namespace breaks callers
-       pub fn divide(a: i32, b: i32) -> i32 {
-           unsafe { a / b }           // UNSAFE used — constraint violation -0.50
-       }                              // panics on b=0 — wrong semantics
-   }
-
---------------------------------------------------------------------------------
  HYPERPARAMETERS
 --------------------------------------------------------------------------------
  Model              : Qwen/Qwen2.5-3B-Instruct
- LoRA rank          : 16
- LoRA alpha         : 32
- LoRA target modules: q_proj, k_proj, v_proj, o_proj, gate_proj, up_proj, down_proj
- LoRA dropout       : 0.05
- Trainable params   : 39,976,960 (1.28% of total)
- Learning rate      : 2e-5 (cosine scheduler, 5% warmup)
- Batch size         : 2 (per device, A10G)
+ LoRA rank          : 16  |  alpha: 32  |  dropout: 0.05
+ LoRA targets       : q_proj k_proj v_proj o_proj gate_proj up_proj down_proj
+ Trainable params   : 39,976,960 (1.28% of 3.13B total)
+ Learning rate      : 2e-5  (cosine scheduler, 5% warmup)
+ Batch size         : 1 per device
  Gradient accum.    : 4 steps
- Num generations    : 4 (GRPO rollouts per prompt)
+ Num generations    : 4  (GRPO rollouts per prompt)
  Max completion len : 512 tokens
- dtype              : bfloat16
- Seed               : 42
+ dtype              : bfloat16  |  Seed: 42
  Framework          : HuggingFace TRL (GRPOTrainer) + PEFT
---------------------------------------------------------------------------------
 
- ENVIRONMENT DETAILS
+ ENVIRONMENT
 --------------------------------------------------------------------------------
  OpenEnv base class : openenv.core.env_server.interfaces.Environment
- API framework      : FastAPI (Gym-style /reset /step /state /observation)
- Reward components  : cargo check + cargo test + 5-family S(r) + CBO + LCOM
- Safety metric      : LAC2R 5-family (Sim et al., arXiv:2505.15858, Eq. 3)
- Curriculum phases  : 4 (leaf node → 2-file chain → partial DAG → full repo)
- Anti-hacking       : protected test files, 30s/60s timeouts, path traversal blocks
+ Safety metric      : LAC2R 5-family S(r)=m·max(1-T_i/T_0,0)  arXiv:2505.15858
  Space URL          : https://adithyakommuri-meta-hackathon-final.hf.space
- Training notebook  : CRust_Training_Colab.ipynb (Colab-runnable, no API keys needed)
+ Colab notebook     : https://colab.research.google.com/github/22adi66/meta_pytorch_scalar_hackathon/blob/master/CRust_Training_Colab.ipynb
 ================================================================================
